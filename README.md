@@ -1,1 +1,3 @@
-Jump to papers.cool search from Zotero 7
+### zotero-cool-papers-jump
+
+A zotero plugin to jump to papers.cool directly
