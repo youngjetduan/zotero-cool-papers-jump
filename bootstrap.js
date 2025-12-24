@@ -32,8 +32,8 @@ function init(win) {
   let doc = win.document;
 
   const onKeyPress = (event) => {
-    // 检测 Cmd/Ctrl + F
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+    // 检测 Cmd/Ctrl + G
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'g') {
       event.preventDefault();
       event.stopPropagation();
       jump(win);
