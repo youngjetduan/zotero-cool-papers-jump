@@ -5,8 +5,6 @@ const strings = {
   "zh-CN": { openInCoolPapers: "在 Cool Papers 中打开" }
 };
 
-let menuItem;
-
 function startup({ id, version, resourceURI, rootURI }, reason) {
   // 等待 Zotero 初始化完成
   let win = Services.wm.getMostRecentWindow("navigator:browser");
@@ -32,29 +30,48 @@ function getLocaleString(key) {
 
 function init(win) {
   let doc = win.document;
+
+  const onKeyPress = (event) => {
+    // 检测 Cmd/Ctrl + F
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      event.stopPropagation();
+      jump(win);
+      return false;
+    }
+  };
+  
+  doc.addEventListener('keydown', onKeyPress, true);
+  
+  win.__coolpapers_f = onKeyPress;
+
+  /* 菜单项 */
   let menupopup = doc.getElementById("zotero-itemmenu");
   if (!menupopup) return;
 
-  // 监听“即将弹出”
-  menupopup.addEventListener("popupshowing", () => {
-    // 先清理上一次自己插入的（避免重复）
-    let oldSep  = doc.getElementById("coolpapers-sep");
-    let oldItem = doc.getElementById("coolpapers-jump");
-    oldSep?.remove();
-    oldItem?.remove();
+  /* 分割线 */
+  const sep = doc.createXULElement("menuseparator");
+  sep.setAttribute("id", "coolpapers-sep");
+  menupopup.appendChild(sep);
 
-    // 分割线
-    let sep = doc.createXULElement("menuseparator");
-    sep.setAttribute("id", "coolpapers-sep");
-    menupopup.insertBefore(sep, menupopup.firstChild);
+  /* 菜单项 */
+  const menuItem = doc.createXULElement("menuitem");
+  menuItem.setAttribute("id", "coolpapers-jump");
+  menuItem.setAttribute("label", getLocaleString("openInCoolPapers"));
+  menuItem.addEventListener("command", () => jump(win));
+  menupopup.appendChild(menuItem);
 
-    // 菜单项
-    let menuItem = doc.createXULElement("menuitem");
-    menuItem.setAttribute("id", "coolpapers-jump");
-    menuItem.setAttribute("label", getLocaleString("openInCoolPapers"));
-    menuItem.addEventListener("command", () => jump(win));
-    menupopup.insertBefore(menuItem, sep);
-  });
+  /* 保存引用，shutdown 用 */
+  win.__coolpapars_sep      = sep;
+  win.__coolpapers_menuItem = menuItem;
+}
+
+function openurl(win, url) {
+  if (Zotero.openInViewer) {
+    Zotero.openInViewer(url);
+  } else {
+    win.Zotero.launchURL(url);   // 老版本仍走系统浏览器
+  }
 }
 
 function jump(win) {
@@ -72,7 +89,7 @@ function jump(win) {
              .replace(/\s*\[.*?\]$/, '');
   if (query) {
     url = url + query;
-    win.Zotero.launchURL(url);
+    openurl(win, url);
     return;
   }
   
@@ -80,9 +97,26 @@ function jump(win) {
   query = item.getField("title") || item.getDisplayTitle();
   if (!query) return;
   url = url + `search?highlight=1&query=${encodeURIComponent(query)}`;
-  win.Zotero.launchURL(url);
+  openurl(win, url);
 }
 
 function shutdown() {
-  if (menuItem) menuItem.remove();
+  const win = Services.wm.getMostRecentWindow("navigator:browser");
+  if (!win || !win.ZoteroPane) return;  
+  
+  /* 卸载键盘监听器（F 键） */
+  if (win.__coolpapers_f) {
+    win.document.removeEventListener('keydown', win.__coolpapers_f, true);
+
+    delete win.__coolpapers_f;
+  }
+
+  /* 卸载菜单项 */
+  if (win.__coolpapars_sep) {
+    win.__coolpapars_sep.remove();
+    win.__coolpapers_menuItem.remove();
+
+    delete win.__coolpapars_sep;
+    delete win.__coolpapers_menuItem;
+  }
 }
